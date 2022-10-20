@@ -4,66 +4,19 @@ import pandas as pd
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from google.oauth2 import service_account
+from sqlalchemy import text
 
 from db_config import SQA_CONN_PUB
+from db_queries import get_mysql_table_names_query, get_mysql_table_schemas_query, get_data_from_mysql_query
 
-sql_statement = '''
-CREATE TABLE `coaches` (
-  `coach_id` int NOT NULL AUTO_INCREMENT,
-  `first_name` varchar(1000) NOT NULL,
-  `last_name` varchar(1000) NOT NULL,
-  `email_id` varchar(1000) NOT NULL,
-  `password` varchar(1000) DEFAULT NULL,
-  `is_forgot_password_initiated` tinyint(1) DEFAULT NULL,
-  `profile_image_path` varchar(2000) DEFAULT NULL,
-  `time_zone` varchar(2000) DEFAULT NULL,
-  `gender` varchar(1000) NOT NULL,
-  `salutation` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `title` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `country_id` int NOT NULL,
-  `address` varchar(2000) NOT NULL,
-  `website` varchar(2000) DEFAULT NULL,
-  `mobile` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
-  `contact_status` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `rate` int DEFAULT NULL,
-  `wordpress` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `coach_video_url` varchar(2000) DEFAULT NULL,
-  `quality` char(200) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `details` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
-  `birthday_date` date NOT NULL,
-  `german` tinyint(1) NOT NULL,
-  `english` tinyint(1) NOT NULL,
-  `industry_experience` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `other_industry_experience` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `coaching_session_week` int DEFAULT NULL,
-  `years_of_experience` int NOT NULL,
-  `experience_coaching` int NOT NULL,
-  `experience_in_leading` int NOT NULL,
-  `coaching_hours` int DEFAULT NULL,
-  `certificates` varchar(2000) DEFAULT NULL,
-  `other_certificates` varchar(2000) DEFAULT NULL,
-  `company_name` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `tax_id` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `tax_number` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `bank_name` varchar(1000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `owner` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `iban` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `bic` varchar(2000) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '0',
-  `is_deleted` tinyint(1) DEFAULT '0',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`coach_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=latin1;
-'''
-
-con = SQA_CONN_PUB
 credentials = service_account.Credentials.from_service_account_file(
     'data-analytics-359712-1f4a4a01f7ba.json')
-project_id = 'data-analytics-359712'
-client = bigquery.Client(credentials=credentials, project=project_id)
+PROJECT_ID = 'data-analytics-359712'
+DATABASE_ID = 'sparrksapp_raw_data'
 
-datatypes_dict = {'int': 'INTEGER',
+client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
+
+DATATYPES_DICT = {'int': 'INTEGER',
                   'varchar': 'STRING',
                   'json': 'JSON',
                   'datetime': 'DATETIME',
@@ -75,58 +28,124 @@ datatypes_dict = {'int': 'INTEGER',
                   'float': 'NUMERIC'
                   }
 
-schema_def = []
-bigquery.SchemaField("coach_id", "STRING", mode="REQUIRED"),
 
-for line in sql_statement.splitlines():
-    if re.match(r'^\s*`', line):
-        column_name = re.findall(r'(`[^"]*)`', line)[0][1:]
-        datatype_info = line.split("`", 2)[2].strip().split(' ')[0].split('(')[0]
-        if datatype_info in datatypes_dict.keys():
-            datatype = datatypes_dict.get(datatype_info)
-        else:
-            print(datatype_info)
-            datatype = 'STRING'
-        if 'NOT NULL' in line:
-            mode_info = 'REQUIRED'
-            print(column_name)
-        else:
-            mode_info = 'NULLABLE'
-        schema_info = bigquery.SchemaField(column_name, datatype, mode_info)
-        schema_def.append(schema_info)
+def get_mysql_table_names(con):
+    table_names_df = pd.read_sql(get_mysql_table_names_query, con=con)
+    table_names = table_names_df['TABLE_NAME'].values.tolist()
 
-s = schema_def
-
-# table_ref = client.dataset('crm_data').table('coaches')
-table_id = "data-analytics-359712.crm_data.coaches"
-try:
-    client.get_table(table_id)  # Make an API request.
-except NotFound:
-    table = bigquery.Table(table_id, schema=schema_def)
-    table = client.create_table(table)  # Make an API request.
-    print(
-        "Created table {}".format(table_id)
-    )
+    return table_names
 
 
-# get data from MySQL
-query = '''
-select * 
-from sparrks.coaches c '''
-df = pd.read_sql(query, con=con)
-con.close()
-print(df.isna().sum())
-# for c in df.columns:
-#     print(c, df[c].dtypes)
-    # df[c] = df[c].astype('string')
+def get_mysql_table_schema(con, table_name):
+    try:
+        result = con.execute(text(get_mysql_table_schemas_query.format(table_name)))
+        print('Table schema for table', table_name, 'fetched successfully')
+    except Exception as e:
+        print(e.args[0])
+        print('Table schema for table', table_name, 'not fetched.')
 
-## post to BigQuery
-job_config = bigquery.LoadJobConfig(schema=schema_def,
-                                    autodetect=False,
-                                    source_format=bigquery.SourceFormat.CSV
-                                    )
+    return result.first()[1]
 
-job = client.load_table_from_dataframe(
-    df, table_id, job_config=job_config
-)
-job.result()
+
+def prepare_bigquery_schema(mysql_schema, table_name):
+    schema_def = []
+    required_columns = []
+
+    try:
+        for line in mysql_schema.splitlines():
+            if re.match(r'^\s*`', line):
+                column_name = re.findall(r'(`[^"]*)`', line)[0][1:]
+                datatype_info = line.split("`", 2)[2].strip().split(' ')[0].split('(')[0]
+                if datatype_info in DATATYPES_DICT.keys():
+                    datatype = DATATYPES_DICT.get(datatype_info)
+                else:
+                    datatype = 'STRING'
+                if 'NOT NULL' in line:
+                    mode_info = 'REQUIRED'
+                    required_columns.append(column_name)
+                else:
+                    mode_info = 'NULLABLE'
+                schema_info = bigquery.SchemaField(column_name, datatype, mode_info)
+                schema_def.append(schema_info)
+        print('Schema for table', table_name, 'created')
+    except Exception as e:
+        print(e.args[0])
+        print('Schema creation for table', table_name, 'failed')
+
+    return schema_def, required_columns
+
+
+def create_bigquery_table(table_id, bigquery_schema_def):
+    try:
+        client.get_table(table_id)
+        print("Table {} exists already".format(table_id))
+    except NotFound:
+        table = bigquery.Table(table_id, schema=bigquery_schema_def)
+        table = client.create_table(table)  # Make an API request.
+        print("Created table {}".format(table_id))
+
+
+def get_data_from_mysql(table_name, con, required_columns):
+    try:
+        df = pd.read_sql(get_data_from_mysql_query.format(table_name), con=con)
+
+        # handle \r and \n special characters
+        df.replace(to_replace=[r"\\n|\\r", "\n|\r"], value=["", ""], regex=True, inplace=True)
+
+        # handle empty strings
+        for c in df[required_columns]:
+            if '' in df[c].values:
+                df[c] = df[c].replace({'': ' '})
+
+        print('Data from table', table_name, 'fetched successfully')
+    except Exception as e:
+        print(e.args[0])
+        print('Getting data from table', table_name, 'failed')
+
+    # con.close()
+    # print(df.isna().sum())
+    return df
+
+
+def write_data_to_bigquery(df, schema_def, table_id, table_name):
+    # post to BigQuery
+    job_config = bigquery.LoadJobConfig(schema=schema_def,
+                                        write_disposition="WRITE_TRUNCATE",
+                                        autodetect=False,
+                                        source_format=bigquery.SourceFormat.CSV
+                                        )
+    try:
+        job = client.load_table_from_dataframe(
+            df, table_id, job_config=job_config
+        )
+        job.result()
+        print('Data for table', table_name, 'uploaded successfully to BigQuery')
+    except Exception as e:
+        print(e.args[0])
+        print('Upload of data for table', table_name, 'to BigQuery failed')
+
+
+def start_pipeline(project_id, database_id, table_names, con):
+    for table_name in table_names:
+        mysql_create_schema_query = get_mysql_table_schema(con, table_name)
+        schema_def, required_columns = prepare_bigquery_schema(mysql_create_schema_query, table_name)
+        table_id = "{}.{}.{}".format(project_id, database_id, table_name)
+        create_bigquery_table(table_id, schema_def)
+        table_data = get_data_from_mysql(table_name, con, required_columns)
+        write_data_to_bigquery(table_data, schema_def, table_id, table_name)
+    SQA_CONN_PUB.close()
+
+
+def one_table(project_id, database_id, con, table_name ='application_area'):
+    mysql_create_schema_query = get_mysql_table_schema(con, table_name)
+    schema_def, required_columns = prepare_bigquery_schema(mysql_create_schema_query, table_name)
+    table_id = "{}.{}.{}".format(project_id, database_id, table_name)
+    create_bigquery_table(table_id, schema_def)
+    table_data = get_data_from_mysql(table_name, con, required_columns)
+    write_data_to_bigquery(table_data, schema_def, table_id, table_name)
+
+
+table_names_tinyint_bool = ['programmes']
+table_names_wrong_duration = ['coach_survey', 'coachee_survey']
+
+start_pipeline(PROJECT_ID, DATABASE_ID, table_names_wrong_duration, SQA_CONN_PUB)
