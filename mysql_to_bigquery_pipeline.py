@@ -1,3 +1,4 @@
+from datetime import datetime
 import re
 
 import pandas as pd
@@ -6,11 +7,12 @@ from google.cloud.exceptions import NotFound
 from google.oauth2 import service_account
 from sqlalchemy import text
 
+from data_quality_check import get_row_count
 from db_config import SQA_CONN_PUB
 from db_queries import get_mysql_table_names_query, get_mysql_table_schemas_query, get_data_from_mysql_query
 
 credentials = service_account.Credentials.from_service_account_file(
-    'data-analytics-359712-1f4a4a01f7ba.json')
+    'data-analytics-359712-c05ab5a3dc2a.json')
 PROJECT_ID = 'data-analytics-359712'
 DATABASE_ID = 'sparrksapp_raw_data'
 
@@ -51,6 +53,7 @@ def prepare_bigquery_schema(mysql_schema, table_name):
     schema_def = []
     required_columns = []
     tinyint_columns = []
+    time_columns = []
 
     try:
         for line in mysql_schema.splitlines():
@@ -61,6 +64,8 @@ def prepare_bigquery_schema(mysql_schema, table_name):
                     datatype = DATATYPES_DICT.get(datatype_info)
                     if datatype_info == 'tinyint':
                         tinyint_columns.append(column_name)
+                    elif datatype_info == 'time':
+                        time_columns.append(column_name)
                 else:
                     datatype = 'STRING'
                 if 'NOT NULL' in line:
@@ -75,7 +80,7 @@ def prepare_bigquery_schema(mysql_schema, table_name):
         print(e.args[0])
         print('Schema creation for table', table_name, 'failed')
 
-    return schema_def, required_columns, tinyint_columns
+    return schema_def, required_columns, tinyint_columns, time_columns
 
 
 def create_bigquery_table(table_id, bigquery_schema_def):
@@ -102,13 +107,14 @@ def get_raw_data_from_mysql(table_name, con):
     return df
 
 
-def clean_mysql_data(table_name, df, required_columns, tinyint_columns):
+def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_columns):
     error_indices_list = []
-    correct_indices_list = []
     if df is None:
         print('Data frame for table', table_name, 'is None. No cleaning was performed')
+        return None
     elif df.empty:
         print('Data frame for table', table_name, 'is empty. No cleaning was performed')
+        return df
     else:
         # handle \r and \n special characters
         df.replace(to_replace=[r"\\n|\\r", "\n|\r"], value=["", ""], regex=True, inplace=True)
@@ -124,12 +130,36 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns):
             try:
                 df[c] = df[c].astype('boolean')
             except TypeError as e:
-                error_indices_list.extend(df[(df[c] != 1) & (df[c] != 0) & (df[c].notna())].index.values.astype(int).tolist())
-                # correct_indices_list.append(df[(df[c] == 1) | (df[c] == 0) | (df[c].isna())].index.values.astype(int).tolist())
+                error_indices_list.extend(
+                    df[(df[c] != 1) & (df[c] != 0) & (df[c].notna())].index.values.astype(int).tolist())
                 print('Column', c, 'from table', table_name, 'cannot be converted from tinyint to boolean. Please '
-                                                             'check the values manually.')
+                                                             'check the values manually. The corrupt rows are written '
+                                                             'in the file corrupt_rows.csv')
                 print(e.args[0])
 
+        # check if time is convertible to str
+        for c in df[time_columns]:
+            try:
+                # for i, row in df.iterrows():
+                # t = f'{df.loc[i, c].components.hours:02d}:{df.loc[i, c].components.minutes:02d}:{df.loc[i, c].components.seconds:02d}' if not pd.isnull(df.loc[i, c]) else ''
+                # df.at[i, c] = t
+                df[c] = df[c].apply(
+                    lambda x: f'{x.components.hours:02d}:{x.components.minutes:02d}:{x.components.seconds:02d}'
+                    if not pd.isnull(x) else ''
+                )
+            except TypeError as e:
+                # todo: handle corrupt rows
+                # for i, row in df.iterrows():
+                #     try:
+                #         df.loc[i, c] = df.loc[i, c].apply(
+                #             lambda x: f'{x.components.hours:02d}:{x.components.minutes:02d}:{x.components.seconds:02d}'
+                #             if not pd.isnull(x) else ''
+                #         )
+                #     except TypeError:
+                #         error_indices_list.append(i)
+                print('Column', c, 'from table', table_name, 'cannot be converted from tinyint to boolean. '
+                                                             'Please check the values manually. The corrupt '
+                                                             'rows are written in the file corrupt_rows.csv')
         # make sure indices are distinct
         error_indices_set = set(error_indices_list)
         all_indices = df.index.values.astype(int).tolist()
@@ -161,15 +191,31 @@ def write_data_to_bigquery(df, schema_def, table_id, table_name):
         print('Upload of data for table', table_name, 'to BigQuery failed')
 
 
+def compare_row_count(table_name, database_id, con, date_filter, mysql_schema_name):
+    bq_row_count = get_row_count('bigquery', client, database_id, table_name, date_filter)
+    mysql_row_count = get_row_count('mysql', con, mysql_schema_name, table_name, date_filter)
+    if bq_row_count == mysql_row_count:
+        print('Yay destination and source have the same row count for table', table_name, '!')
+        return True
+    else:
+        print('Oops, destination and source have different row counts for table', table_name, '!')
+        return False
+
+
 def start_pipeline(project_id, database_id, table_names, con):
     for table_name in table_names:
-        mysql_create_schema_query = get_mysql_table_schema(con, table_name)
-        schema_def, required_columns, tinyint_columns = prepare_bigquery_schema(mysql_create_schema_query, table_name)
-        table_id = "{}.{}.{}".format(project_id, database_id, table_name)
-        create_bigquery_table(table_id, schema_def)
-        table_data = get_raw_data_from_mysql(table_name, con)
-        table_data = clean_mysql_data(table_name, table_data, required_columns, tinyint_columns)
-        # write_data_to_bigquery(table_data, schema_def, table_id, table_name)
+        date_filter = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if compare_row_count(table_name, database_id, con, date_filter, 'sparrks'):
+            mysql_create_schema_query = get_mysql_table_schema(con, table_name)
+            schema_def, required_columns, tinyint_columns, time_columns = prepare_bigquery_schema(
+                mysql_create_schema_query,
+                table_name)
+            table_id = "{}.{}.{}".format(project_id, database_id, table_name)
+            create_bigquery_table(table_id, schema_def)
+            table_data = get_raw_data_from_mysql(table_name, con)
+            table_data = clean_mysql_data(table_name, table_data, required_columns, tinyint_columns, time_columns)
+            write_data_to_bigquery(table_data, schema_def, table_id, table_name)
+
     SQA_CONN_PUB.close()
 
 
@@ -182,7 +228,6 @@ def start_pipeline(project_id, database_id, table_names, con):
 #     write_data_to_bigquery(table_data, schema_def, table_id, table_name)
 
 
-table_names_tinyint_bool = ['programmes']
-# table_names_wrong_duration = ['coachee_survey', 'coach_survey']
-
-start_pipeline(PROJECT_ID, DATABASE_ID, table_names_tinyint_bool, SQA_CONN_PUB)
+if __name__ == '__main__':
+    table_names = get_mysql_table_names(SQA_CONN_PUB)
+    start_pipeline(PROJECT_ID, DATABASE_ID, table_names, SQA_CONN_PUB)
