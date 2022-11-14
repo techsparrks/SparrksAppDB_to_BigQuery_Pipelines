@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 
@@ -78,3 +79,29 @@ def calc_feedback(journey_analysis_df, topic_or_coach):
     help_df = help_df[help_df['feedback_n'].notna()].drop_duplicates()
 
     return help_df
+
+
+def calc_nps_and_feedback(raw_journey_analysis_df, topic_or_coach):
+    nps_power_coaching_ratings_df = calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach,
+                                                                   'nps_power_coaching')
+    nps_coach_ratings_df = calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach, 'nps_coach')
+    feedback_n_df = calc_feedback(raw_journey_analysis_df, topic_or_coach)
+    ratings_df = pd.merge(nps_power_coaching_ratings_df, nps_coach_ratings_df, how='outer')
+    final_ratings_df = pd.merge(ratings_df, feedback_n_df, how='outer')
+
+    return final_ratings_df
+
+
+def get_journey_analysis_data(gs_client, sales_funnel_doc_name, journey_analysis_sheet_name, nps_columns,
+                              reference_names):
+    # get journey analysis data
+    doc = gs_client.open(sales_funnel_doc_name)
+    journey_analysis_sheet_read = doc.worksheet(journey_analysis_sheet_name)
+    journey_analysis_df = pd.DataFrame(journey_analysis_sheet_read.get_values())
+    journey_analysis_df.columns = journey_analysis_df.iloc[0]
+    journey_analysis_df = journey_analysis_df[1:]
+    journey_analysis_df.replace('', np.nan, inplace=True)
+    raw_journey_analysis_df = journey_analysis_df[nps_columns].dropna()
+    raw_journey_analysis_df = raw_journey_analysis_df.rename(columns=reference_names)
+
+    return raw_journey_analysis_df
