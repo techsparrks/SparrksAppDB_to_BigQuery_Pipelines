@@ -55,8 +55,8 @@ if __name__ == '__main__':
                                                         nps_columns, reference_names)
 
     # write NPS relevant raw data to BigQuery
-    write_data_to_bigquery(raw_journey_analysis_df, client, bigquery_raw_journey_analysis_schema, raw_topic_table_id,
-                           bigquery_journey_analysis_raw_data_table_name)
+    # write_data_to_bigquery(raw_journey_analysis_df, client, bigquery_raw_journey_analysis_schema, raw_topic_table_id,
+    #                        bigquery_journey_analysis_raw_data_table_name)
 
     # calculate NPS and feedback for coaches and topics
     final_ratings_topic_df = calc_nps_and_feedback(raw_journey_analysis_df, 'topic')

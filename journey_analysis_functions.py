@@ -17,7 +17,24 @@ def calculate_booked(journey_analysis_df, topic_or_coach):
     return journey_analysis_df
 
 
-def calculate_nps_sparrks_coaching(journey_analysis_df, topic_or_coach, nps_to_calculate):
+def calculate_booked_vs_completed(journey_analysis_df, topic_or_coach):
+    if topic_or_coach == 'topic':
+        column_name = 'use_case_engl'
+    elif topic_or_coach == 'coach':
+        column_name = 'coach_name'
+
+    journey_analysis_df['booked'] = journey_analysis_df.groupby(column_name)[column_name].transform(
+        'count')
+    journey_analysis_df['journey_completed'] = journey_analysis_df[journey_analysis_df['completed'] == 'x'].groupby(column_name)[
+            column_name].transform('count')
+    journey_analysis_df = journey_analysis_df[journey_analysis_df[column_name] != '']
+
+    help_df = journey_analysis_df[[column_name, 'booked', 'journey_completed']].drop_duplicates()
+
+    return help_df
+
+
+def calculate_nps_sparrks_coaching(journey_analysis_df, topic_or_coach, nps_to_calculate, help_df):
     journey_analysis_df[nps_to_calculate].replace('', '0', inplace=True)
     journey_analysis_df[nps_to_calculate] = journey_analysis_df[nps_to_calculate].astype('int64')
 
@@ -31,17 +48,11 @@ def calculate_nps_sparrks_coaching(journey_analysis_df, topic_or_coach, nps_to_c
     elif nps_to_calculate == 'nps_coach':
         column_output_name = 'nps_coach'
 
-    journey_analysis_df['booked'] = journey_analysis_df.groupby(column_name)[column_name].transform(
-        'count')
-    journey_analysis_df['journey_completed'] = journey_analysis_df[journey_analysis_df['completed'] == 'x'].groupby(column_name)[
-            column_name].transform('count')
-    journey_analysis_df = journey_analysis_df[journey_analysis_df[column_name] != '']
 
-    help_df_1 = journey_analysis_df[[column_name, 'booked', 'journey_completed']]
-    help_df_1['8'] = \
+    help_df['8'] = \
         journey_analysis_df[journey_analysis_df[nps_to_calculate] > 8].groupby(column_name)[column_name].transform(
             'count')
-    help_df_1 = help_df_1[help_df_1['8'].notna()].drop_duplicates()
+    help_df_1 = help_df[help_df['8'].notna()]
 
     help_df_2 = journey_analysis_df[[column_name]]
     help_df_2['7'] = journey_analysis_df[(journey_analysis_df[nps_to_calculate] < 7) & (
@@ -82,9 +93,10 @@ def calc_feedback(journey_analysis_df, topic_or_coach):
 
 
 def calc_nps_and_feedback(raw_journey_analysis_df, topic_or_coach):
+    help_df = calculate_booked_vs_completed(raw_journey_analysis_df, topic_or_coach)
     nps_power_coaching_ratings_df = calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach,
-                                                                   'nps_power_coaching')
-    nps_coach_ratings_df = calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach, 'nps_coach')
+                                                                   'nps_power_coaching', help_df)
+    nps_coach_ratings_df = calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach, 'nps_coach', help_df)
     feedback_n_df = calc_feedback(raw_journey_analysis_df, topic_or_coach)
     ratings_df = pd.merge(nps_power_coaching_ratings_df, nps_coach_ratings_df, how='outer')
     final_ratings_df = pd.merge(ratings_df, feedback_n_df, how='outer')
@@ -101,7 +113,8 @@ def get_journey_analysis_data(gs_client, sales_funnel_doc_name, journey_analysis
     journey_analysis_df.columns = journey_analysis_df.iloc[0]
     journey_analysis_df = journey_analysis_df[1:]
     journey_analysis_df.replace('', np.nan, inplace=True)
-    raw_journey_analysis_df = journey_analysis_df[nps_columns].dropna()
+    raw_journey_analysis_df = journey_analysis_df[nps_columns].dropna(subset=['Use Case engl.'])
+    # raw_journey_analysis_df = journey_analysis_df[journey_analysis_df[nps_columns].notna()]
     raw_journey_analysis_df = raw_journey_analysis_df.rename(columns=reference_names)
 
     return raw_journey_analysis_df
