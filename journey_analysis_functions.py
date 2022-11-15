@@ -35,7 +35,7 @@ def calculate_booked_vs_completed(journey_analysis_df, topic_or_coach):
 
 
 def calculate_nps_sparrks_coaching(journey_analysis_df, topic_or_coach, nps_to_calculate, help_df):
-    journey_analysis_df[nps_to_calculate].replace('', '0', inplace=True)
+    journey_analysis_df[nps_to_calculate].replace(np.nan, '0', inplace=True)
     journey_analysis_df[nps_to_calculate] = journey_analysis_df[nps_to_calculate].astype('int64')
 
     if topic_or_coach == 'topic':
@@ -66,14 +66,16 @@ def calculate_nps_sparrks_coaching(journey_analysis_df, topic_or_coach, nps_to_c
     help_df_3 = help_df_3[help_df_3['0'].notna()].drop_duplicates()
 
     merge_7_8 = pd.merge(help_df_1, help_df_2, on=column_name, how='outer')
+    merge_7_8[['7', '8']].replace(np.nan, '0', inplace=True)
     merge_7_8['8-7'] = merge_7_8['8'] - merge_7_8['7']
 
     final_df = pd.merge(merge_7_8, help_df_3, on=column_name, how='outer')
+    final_df[['7', '8']].replace(np.nan, '0', inplace=True)
     final_df[column_output_name] = final_df['8-7'] / final_df['0']
 
     final_df = final_df[final_df['journey_completed'].notna()]
 
-    return final_df[[column_name, column_output_name,'booked', 'journey_completed']]
+    return final_df[[column_name, column_output_name, 'booked', 'journey_completed']]
 
 
 def calc_feedback(journey_analysis_df, topic_or_coach):
@@ -110,11 +112,10 @@ def get_journey_analysis_data(gs_client, sales_funnel_doc_name, journey_analysis
     doc = gs_client.open(sales_funnel_doc_name)
     journey_analysis_sheet_read = doc.worksheet(journey_analysis_sheet_name)
     journey_analysis_df = pd.DataFrame(journey_analysis_sheet_read.get_values())
-    journey_analysis_df = journey_analysis_df.iloc[1:, :]
     journey_analysis_df.columns = journey_analysis_df.iloc[0]
     journey_analysis_df = journey_analysis_df[1:]
     journey_analysis_df.replace('', np.nan, inplace=True)
-    raw_journey_analysis_df = journey_analysis_df[nps_columns].dropna(subset=[nps_columns[0]])
+    raw_journey_analysis_df = journey_analysis_df[nps_columns].dropna(subset=['Use Case engl.'])
     # raw_journey_analysis_df = journey_analysis_df[journey_analysis_df[nps_columns].notna()]
     raw_journey_analysis_df = raw_journey_analysis_df.rename(columns=reference_names)
 
