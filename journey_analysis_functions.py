@@ -110,7 +110,8 @@ def get_journey_analysis_data(gs_client, sales_funnel_doc_name, journey_analysis
     doc = gs_client.open(sales_funnel_doc_name)
     journey_analysis_sheet_read = doc.worksheet(journey_analysis_sheet_name)
     journey_analysis_df = pd.DataFrame(journey_analysis_sheet_read.get_values())
-    journey_analysis_df.columns = journey_analysis_df.iloc[1]
+    journey_analysis_df = journey_analysis_df.iloc[1:, :]
+    journey_analysis_df.columns = journey_analysis_df.iloc[0]
     journey_analysis_df = journey_analysis_df[1:]
     journey_analysis_df.replace('', np.nan, inplace=True)
     raw_journey_analysis_df = journey_analysis_df[nps_columns].dropna(subset=[nps_columns[0]])

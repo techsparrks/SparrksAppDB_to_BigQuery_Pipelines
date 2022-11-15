@@ -42,19 +42,23 @@ reference_names = {
     'Sub-Topic': 'use_case',
     '0. Coach first': 'coach_first_name',
     '0. Coach last': 'coach_last_name',
-    # 'Completed clean': 'completed',
-    # 'NPS Power Coaching': 'nps_power_coaching',
-    # 'NPS Coach': 'nps_coach'
+    'Submission': 'submission',
+    'Survey completed': 'survey_completed',
+    'NPS Power Coaching': 'nps_power_coaching',
+    'NPS coach': 'nps_coach'
 }
 
 # get relevant columns from the Google Sheet for the NPS analysis
-nps_columns = ['Sub-Topic', '0. Coach first', '0. Coach last'] #'Completed clean', 'NPS Power Coaching', 'NPS Coach']
+nps_columns = ['Sub-Topic', '0. Coach first', '0. Coach last', 'Submission', 'Survey completed', 'NPS Power Coaching',
+               'NPS coach']
 
 
 if __name__ == '__main__':
     # get journey analysis data
     raw_journey_analysis_df = get_journey_analysis_data(gs_client, sales_funnel_doc_name, journey_analysis_sheet_name,
                                                         nps_columns, reference_names)
+    # todo handle datetime datatype for submission
+
     # calculated_journey_analysis_df = get_journey_analysis_data(gs_client, sales_funnel_doc_name, nps_kpi_sheetname,
     #                                                     nps_columns, reference_names)
 
