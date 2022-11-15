@@ -1,14 +1,21 @@
 from google.cloud import bigquery
 
+from db_config import SQA_CONN_PUB, SQA_CONN_PUB_ENGINE
 
-def getRowCount(bqDataset, bqTable):
-    bigqueryClient = bigquery.Client()
-    sql = """SELECT COUNT(1) as recordCount FROM {}.{}""".format(bqDataset, bqTable)
-    job = bigqueryClient.query(sql)
-    rows = job.result()
-    for row in rows:
-        rowCount = row.recordCount
-    return(rowCount)
+
+def get_row_count(from_str, client_con, dataset, table_name, created_at):
+    sql = """SELECT COUNT(1) as record_count FROM {}.{} where created_at <= '{}'""".format(dataset, table_name, created_at)
+    if from_str == 'bigquery' and client_con is not None:
+        job = client_con.query(sql)
+        rows = job.result()
+        for row in list(rows):
+            row_count = row.record_count
+    elif from_str == 'mysql' and client_con is not None:
+        row_count = client_con.execute(sql).scalar()
+    else:
+        row_count = None
+        print('Fetching the row count of table', table_name, 'from', from_str, 'failed.')
+    return row_count
 
 
 def getSql(bqDataset, bqTable, columnList, rowCount):
