@@ -74,7 +74,8 @@ def calculate_nps_sparrks_coaching(journey_analysis_df, topic_or_coach, nps_to_c
     final_df[column_output_name] = final_df['8-7'] / final_df['0']
 
     final_df = final_df[final_df['journey_completed'].notna()]
-
+    final_df['origin'] = "OLD VERSION - GOOGLE Sheet"
+    
     return final_df[[column_name, column_output_name, 'booked', 'journey_completed']]
 
 
@@ -93,6 +94,20 @@ def calc_feedback(journey_analysis_df, topic_or_coach):
 
     return help_df
 
+#def calc_feedback_percentage(journey_analysis_df, topic_or_coach):
+
+ #   if topic_or_coach == 'topic':
+  #      column_name = 'use_case_engl'
+   # elif topic_or_coach == 'coach':
+    #    column_name = 'coach_name'
+
+   # help_df = journey_analysis_df[[column_name]]
+    #help_df['feedback_percent'] = \
+     #   journey_analysis_df[journey_analysis_df['nps_power_coaching'] > 0].groupby(column_name)[column_name].transform(
+      #      'count') / journey_analysis_df['completed']
+   # help_df = help_df[help_df['feedback_percent'].notna()].drop_duplicates()
+
+    #return help_df
 
 def calc_nps_and_feedback(raw_journey_analysis_df, topic_or_coach):
     help_df = calculate_booked_vs_completed(raw_journey_analysis_df, topic_or_coach)
@@ -100,8 +115,12 @@ def calc_nps_and_feedback(raw_journey_analysis_df, topic_or_coach):
                                                                    'nps_power_coaching', help_df)
     nps_coach_ratings_df = calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach, 'nps_coach', help_df)
     feedback_n_df = calc_feedback(raw_journey_analysis_df, topic_or_coach)
+    #feedback_p_df = calc_feedback_percentage(raw_journey_analysis_df, topic_or_coach)
+    #feedback_df = pd.merge(feedback_n_df, feedback_p_df, how='outer')
     ratings_df = pd.merge(nps_power_coaching_ratings_df, nps_coach_ratings_df, how='outer')
     final_ratings_df = pd.merge(ratings_df, feedback_n_df, how='outer')
+    final_ratings_df["feedback_p"] = round((final_ratings_df["feedback_n"] / final_ratings_df["journey_completed"])*100)
+    final_ratings_df["origin"] = "OLD VERSION"
 
     return final_ratings_df
 
