@@ -6,9 +6,10 @@ bigquery_raw_journey_analysis_schema = [
     SchemaField('use_case', 'STRING', 'NULLABLE', None, ()),
     SchemaField('coach_first_name', 'STRING', 'NULLABLE', None, ()),
     SchemaField('coach_last_name', 'STRING', 'NULLABLE', None, ()),
-    # SchemaField('completed', 'STRING', 'NULLABLE', None, ()),
-    # SchemaField('nps_coach', 'INTEGER', 'NULLABLE', None, ()),
-    # SchemaField('nps_power_coaching', 'INTEGER', 'NULLABLE', None, ())
+    SchemaField('submission', 'STRING', 'NULLABLE', None, ()),
+    SchemaField('survey_completed', 'STRING', 'NULLABLE', None, ()),
+    SchemaField('nps_coach', 'INTEGER', 'NULLABLE', None, ()),
+    SchemaField('nps_power_coaching', 'INTEGER', 'NULLABLE', None, ())
 ]
 
 bigquery_journey_analysis_topic_schema = [
