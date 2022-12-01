@@ -22,7 +22,7 @@ credentials = service_account.Credentials.from_service_account_file(
 client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 PROJECT_ID = 'data-analytics-359712'
-DATABASE_ID = 'googlesheet_raw_data'
+DATABASE_ID = 'old_system_raw_data'
 
 sales_funnel_doc_name = 'Moji-SPARRKS Analysis'
 journey_analysis_sheet_name = 'Journey analysis'
@@ -53,7 +53,6 @@ if __name__ == '__main__':
     # get journey analysis data
     raw_journey_analysis_df = get_journey_analysis_data(gs_client, sales_funnel_doc_name, journey_analysis_sheet_name,
                                                         nps_columns, reference_names)
-
     # write NPS relevant raw data to BigQuery
     # write_data_to_bigquery(raw_journey_analysis_df, client, bigquery_raw_journey_analysis_schema, raw_topic_table_id,
     #                        bigquery_journey_analysis_raw_data_table_name)
