@@ -17,7 +17,8 @@ bigquery_journey_analysis_topic_schema = [
     SchemaField('nps_sparrks_coaching', 'FLOAT', 'NULLABLE', None, ()),
     SchemaField('nps_coach', 'FLOAT', 'NULLABLE', None, ()),
     SchemaField('feedback_n', 'INTEGER', 'NULLABLE', None, ()),
-    # SchemaField('feedback_percent', 'FLOAT', 'NULLABLE', None, ()),
+    SchemaField('feedback_p', 'FLOAT', 'NULLABLE', None, ()),
+    SchemaField('origin', 'STRING', 'NULLABLE', None, ()),
 ]
 
 bigquery_journey_analysis_coach_schema = [
@@ -27,5 +28,6 @@ bigquery_journey_analysis_coach_schema = [
     SchemaField('nps_sparrks_coaching', 'FLOAT', 'NULLABLE', None, ()),
     SchemaField('nps_coach', 'FLOAT', 'NULLABLE', None, ()),
     SchemaField('feedback_n', 'INTEGER', 'NULLABLE', None, ()),
-    # SchemaField('feedback_percent', 'FLOAT', 'NULLABLE', None, ()),
+    SchemaField('feedback_p', 'FLOAT', 'NULLABLE', None, ()),
+    SchemaField('origin', 'STRING', 'NULLABLE', None, ()),
 ]
