@@ -1,7 +1,5 @@
 from google.cloud.bigquery import SchemaField
 
-from shared_functions import create_bigquery_table
-
 bigquery_raw_journey_analysis_schema = [
     SchemaField('use_case_engl', 'STRING', 'NULLABLE', None, ()),
     SchemaField('coach_name', 'STRING', 'NULLABLE', None, ()),

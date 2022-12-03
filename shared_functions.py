@@ -19,10 +19,26 @@ DATATYPES_DICT = {'int': 'INTEGER',
                   }
 
 
-def write_data_to_bigquery(df, client, schema_def, table_id, table_name):
-    # post to BigQuery
-    job_config = bigquery.LoadJobConfig(schema=schema_def,
-                                        write_disposition="WRITE_TRUNCATE",  # "WRITE_APPEND"
+def write_data_to_bigquery(df, client, bigquery_schema_def, table_id, overwrite=True):
+    """
+    Writes data to the table table_id in BigQuery
+
+    df: data to be written to BigQuery in the form of a DataFrame
+    client: BigQuery client
+    bigquery_schema_def: schema for the table to be created
+    table_id: table_id of the BigQuery table to write to
+
+    """
+
+    # set the argument to overwrite the table or to append the new data
+    if overwrite:
+        overwrite_or_append = 'WRITE_TRUNCATE'
+    else:
+        overwrite_or_append = 'WRITE_APPEND'
+
+    # write data to BigQuery table
+    job_config = bigquery.LoadJobConfig(schema=bigquery_schema_def,
+                                        write_disposition=overwrite_or_append,
                                         autodetect=False,
                                         source_format=bigquery.SourceFormat.CSV
                                         )
@@ -31,16 +47,31 @@ def write_data_to_bigquery(df, client, schema_def, table_id, table_name):
             df, table_id, job_config=job_config
         )
         job.result()
-        print('Data for table', table_name, 'uploaded successfully to BigQuery')
+        print('Data for table', table_id, 'uploaded successfully to BigQuery')
     except Exception as e:
         print(e.args[0])
-        print('Upload of data for table', table_name, 'to BigQuery failed')
+        print('Upload of data for table', table_id, 'to BigQuery failed')
 
 
-def create_bigquery_table(client, table_id, bigquery_schema_def):
+def create_bigquery_table(client, table_id, bigquery_schema_def, recreate_table=False):
+    """
+    Creates a BigQuery table with table_id using the defined schema
+
+    client: BigQuery client
+    table_id: table_id of the BigQuery table to create
+    bigquery_schema_def: schema for the table to be created
+    recreate_table: specifies if an existing table should be recreated; default value set to False
+    """
+
     try:
         client.get_table(table_id)
-        print("Table {} exists already".format(table_id))
+        if recreate_table:
+            client.delete_table(table_id, not_found_ok=True)
+            table = bigquery.Table(table_id, schema=bigquery_schema_def)
+            table = client.create_table(table)
+            print("Recreated table {}".format(table_id))
+        else:
+            print("Table {} exists already".format(table_id))
     except NotFound:
         table = bigquery.Table(table_id, schema=bigquery_schema_def)
         table = client.create_table(table)  # Make an API request.
@@ -48,6 +79,14 @@ def create_bigquery_table(client, table_id, bigquery_schema_def):
 
 
 def get_mysql_table_schema(con, table_name):
+    """
+    Gets the MySQL DDL for table creation
+
+    con: specifies the MySQL connection
+    table_name: the name of the table for which the schema should be fetched
+
+    returns: schema for the specified table
+    """
     try:
         result = con.execute(text(get_mysql_table_schemas_query.format(table_name)))
         print('Table schema for table', table_name, 'fetched successfully')
@@ -59,7 +98,19 @@ def get_mysql_table_schema(con, table_name):
 
 
 def prepare_bigquery_schema(mysql_schema, table_name):
-    schema_def = []
+    """
+    Transforms MySQL table creation schema into BigQuery schema
+
+    mysql_schema: the MySQL table schema for table creation
+    table_name: the name of the table for which the schema should be transformed
+
+    returns:
+        big_query_schema_def: the transformed BigQuery schema definition
+        required_columns: list of required columns (NOT NULL columns)
+        tinyint_columns: list of columns of data type tinyint
+        time_columns: list of columns of data type time
+    """
+    big_query_schema_def = []
     required_columns = []
     tinyint_columns = []
     time_columns = []
@@ -84,10 +135,10 @@ def prepare_bigquery_schema(mysql_schema, table_name):
                 #     mode_info = 'NULLABLE'
                 mode_info = 'NULLABLE'
                 schema_info = bigquery.SchemaField(column_name, datatype, mode_info)
-                schema_def.append(schema_info)
+                big_query_schema_def.append(schema_info)
         print('Schema for table', table_name, 'created')
     except Exception as e:
         print(e.args[0])
         print('Schema creation for table', table_name, 'failed')
 
-    return schema_def, required_columns, tinyint_columns, time_columns
+    return big_query_schema_def, required_columns, tinyint_columns, time_columns

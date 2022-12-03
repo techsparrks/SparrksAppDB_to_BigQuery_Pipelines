@@ -128,7 +128,7 @@ def start_pipeline(project_id, database_id, table_names, con):
             create_bigquery_table(client, table_id, schema_def)
             table_data = get_raw_data_from_mysql(table_name, con)
             table_data = clean_mysql_data(table_name, table_data, required_columns, tinyint_columns, time_columns)
-            write_data_to_bigquery(table_data, client, schema_def, table_id, table_name)
+            write_data_to_bigquery(table_data, client, schema_def, table_id)
 
     SQA_CONN_PUB.close()
 
