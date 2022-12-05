@@ -1,9 +1,18 @@
 from google.cloud import bigquery
 
-from db_config import SQA_CONN_PUB, SQA_CONN_PUB_ENGINE
 
+def get_row_count(table_name, from_str, client_con, dataset, created_at):
+    """
+    Get the row count for the specified table from the respective database
 
-def get_row_count(from_str, client_con, dataset, table_name, created_at):
+    table_name: name of the table to get the row count of
+    from_str: specifies from which database the table is: bigquery or mysql
+    client_con: database connection
+    dataset: BigQuery database ID or MySQL schema name
+    created_at: date up to which the number of rows of the tables should be compared
+
+    returns: the row count in integer
+    """
     sql = """SELECT COUNT(1) as record_count FROM {}.{} where created_at <= '{}'""".format(dataset, table_name, created_at)
     if from_str == 'bigquery' and client_con is not None:
         job = client_con.query(sql)
@@ -18,6 +27,7 @@ def get_row_count(from_str, client_con, dataset, table_name, created_at):
     return row_count
 
 
+# example methods for further Data Quality checks
 def getSql(bqDataset, bqTable, columnList, rowCount):
     colIdx = 0
     sql = ""

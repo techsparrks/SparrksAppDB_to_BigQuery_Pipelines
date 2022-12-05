@@ -50,7 +50,7 @@ def write_data_to_bigquery(df, client, bigquery_schema_def, table_id, overwrite=
         print('Data for table', table_id, 'uploaded successfully to BigQuery')
     except Exception as e:
         print(e.args[0])
-        print('Upload of data for table', table_id, 'to BigQuery failed')
+        print('Upload of data for table', table_id, 'to BigQuery failed!')
 
 
 def create_bigquery_table(client, table_id, bigquery_schema_def, recreate_table=False):
@@ -92,7 +92,7 @@ def get_mysql_table_schema(con, table_name):
         print('Table schema for table', table_name, 'fetched successfully')
     except Exception as e:
         print(e.args[0])
-        print('Table schema for table', table_name, 'not fetched.')
+        print('Fetching table schema for table', table_name, 'failed.')
 
     return result.first()[1]
 
@@ -139,6 +139,6 @@ def prepare_bigquery_schema(mysql_schema, table_name):
         print('Schema for table', table_name, 'created')
     except Exception as e:
         print(e.args[0])
-        print('Schema creation for table', table_name, 'failed')
+        print('bigQuery schema creation for table', table_name, 'failed!')
 
     return big_query_schema_def, required_columns, tinyint_columns, time_columns
