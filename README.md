@@ -1,6 +1,31 @@
 # SparrksAppDB_to_BigQuery_Pipelines
 All tables from SparrksApp DB will be transferred to BigQury for data warehousing purposes
 
+## MySQL to BigQuery Pipeline
+
+The file *mysql_to_bigquery_pipeline.py* shows how to fetch data from MySQL and write it to
+tables in BigQuery in the database **data-analytics-359712.sparrksapp_raw_data**.
+
+This is done as follows:
+
+* MySQL credentials are written in the file *db_config.py* and a connection is created
+* BigQuery project and database id to which the data will be written are specified
+* The BigQuery credentials are accessed through the same json file and a connection to the client is established
+* In the main method a dae is specified, which will be used as a filter later
+* Then all relevant table names are fetched from MySQL i a list (here table names for which the pipeline should be 
+executed can be manually written in a list)
+* Next, the pipeline is started for all tables in the given list. For each table:
+  * the MySQL creation schema is fetched
+  * it is transformed into a BigQuery schema
+  * which is then used to create the BigQuery table (if not present already)
+  * raw data is fetched from MySQL
+  * the raw data is cleaned and prepared for BigQuery import by
+    * handling special characters
+    * handling empty strings
+    * converting tinyint datatype to boolean datatype
+    * converting time datatype to string datatype
+    * corrupt rows are exported to a corrupt_rows_{timestamp}.csv file
+  * after the cleaning is done, the data is uploaded to BigQuery
 
 ## Google Sheets to BigQuery Pipeline
 
@@ -10,7 +35,7 @@ The file *googlesheets_to_googlesheets.py* shows how to read and write data from
 
 ### Journey Analysis to BigQuery
 
-The file *journey_analysis_to_bigquery.py* fetched the data from the Google 
+The file *journey_analysis_to_bigquery.py* shows how to fetch the data from the Google 
 Sheet document **Sparrks Analysis**, sheet **Journey Analysis**, calculates 
 the NPS and writes the results to the tables in BigQuery in the database **data-analytics-359712.old_system_raw_data**.
 
