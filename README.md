@@ -6,7 +6,11 @@ All tables from SparrksApp DB will be transferred to BigQury for data warehousin
 The file *mysql_to_bigquery_pipeline.py* shows how to fetch data from MySQL and write it to
 tables in BigQuery in the database **data-analytics-359712.sparrksapp_raw_data**.
 
-This is done as follows:
+Please consider the following graph for better understanding:
+
+![](graphs/mysql_to_bigquery_single_table.png)
+
+The pipeline works as follows:
 
 * MySQL credentials are written in the file *db_config.py* and a connection is created
 * BigQuery project and database id to which the data will be written are specified
@@ -39,7 +43,11 @@ The file *journey_analysis_to_bigquery.py* shows how to fetch the data from the 
 Sheet document **Sparrks Analysis**, sheet **Journey Analysis**, calculates 
 the NPS and writes the results to the tables in BigQuery in the database **data-analytics-359712.old_system_raw_data**.
 
-This is done as follows:
+Please consider the following graph for better understanding:
+
+![](graphs/google_sheet_to_bigquery.png)
+
+The pipeline works as follows:
     
 * First, the service account is manually given access to the document **Sparrks Analysis** on Google Sheet
 * Then, the credentials to access Google Sheets from Python are accessed through the json file what contains them
