@@ -122,7 +122,7 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_col
         correct_indices_list = [x for x in all_indices if x not in error_indices_set]
         df_error = df.loc[error_indices_list]
         if not df_error.empty:
-            df_error.to_csv('corrupt_rows.csv', index=False)
+            df_error.to_csv('corrupt_rows' + time.strftime("%Y%m%d_%H%M%S") + '.csv', index=False)
         df_correct = df.loc[correct_indices_list]
         print('Data from table', table_name, 'cleaned successfully')
 

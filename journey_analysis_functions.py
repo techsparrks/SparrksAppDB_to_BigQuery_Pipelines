@@ -39,7 +39,6 @@ def calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach, nps_
 
     returns: data frame with the calculated NPS values for either topic or coach
     """
-    # raw_journey_analysis_df[nps_to_calculate] = raw_journey_analysis_df[nps_to_calculate].astype('int64')
 
     if topic_or_coach == 'topic':
         column_name = 'use_case_engl'
@@ -50,6 +49,9 @@ def calculate_nps_sparrks_coaching(raw_journey_analysis_df, topic_or_coach, nps_
         column_output_name = 'nps_sparrks_coaching'
     elif nps_to_calculate == 'nps_coach':
         column_output_name = 'nps_coach'
+
+    # change data type of the nps to calculate to integer
+    raw_journey_analysis_df[nps_to_calculate] = raw_journey_analysis_df[nps_to_calculate].astype('int64')
 
     # count the number of ratings higher than 8, lower than 7 and higher than 0
     raw_journey_analysis_df['8'] = \
