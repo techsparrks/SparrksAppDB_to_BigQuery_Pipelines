@@ -139,6 +139,8 @@ def calc_nps_and_feedback(raw_journey_analysis_df, topic_or_coach):
     # set the origin column to OLD VERSION to differentiate from the NEW VERSION data
     feedback_ratings_df["origin"] = "OLD VERSION"
 
+    print('Data for the', topic_or_coach, 'KPI is ready to be uploaded!')
+
     return feedback_ratings_df
 
 
