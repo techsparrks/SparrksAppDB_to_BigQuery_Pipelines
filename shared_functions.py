@@ -47,7 +47,7 @@ def write_data_to_bigquery(df, client, bigquery_schema_def, table_id, overwrite=
             df, table_id, job_config=job_config
         )
         job.result()
-        print('Data for table', table_id, 'uploaded successfully to BigQuery')
+        print('Data for table', table_id, 'uploaded successfully to BigQuery!')
     except Exception as e:
         print(e.args[0])
         print('Upload of data for table', table_id, 'to BigQuery failed!')

@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -5,7 +6,7 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 
 from data_quality_check import get_row_count
-from db_config import SQA_CONN_PUB
+from db_config import SQA_CONN_PUB, DATABASE
 from db_queries import get_mysql_table_names_query, get_data_from_mysql_query
 from shared_functions import write_data_to_bigquery, create_bigquery_table, get_mysql_table_schema, \
     prepare_bigquery_schema
@@ -20,7 +21,7 @@ credentials = service_account.Credentials.from_service_account_file(
 bigquery_client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 
-def get_mysql_table_names(con):
+def get_mysql_table_names(con, database_name):
     """
     Gets the names of all tables in the MySQL database
 
@@ -28,13 +29,13 @@ def get_mysql_table_names(con):
 
     returns: a list of all table names in the MySQL database
     """
-    table_names_df = pd.read_sql(get_mysql_table_names_query, con=con)
+    table_names_df = pd.read_sql(get_mysql_table_names_query.format(database_name), con=con)
     table_names = table_names_df['TABLE_NAME'].values.tolist()
 
     return table_names
 
 
-def get_raw_data_from_mysql(table_name, con):
+def get_raw_data_from_mysql(table_name, database_name, con):
     """
     Gets the raw data from the specified table in MySQL
 
@@ -44,8 +45,8 @@ def get_raw_data_from_mysql(table_name, con):
     returns: a dataframe with data from the specified table
     """
     try:
-        df = pd.read_sql(get_data_from_mysql_query.format(table_name), con=con)
-        print('Raw data from table', table_name, 'fetched successfully')
+        df = pd.read_sql(get_data_from_mysql_query.format(database_name, table_name), con=con)
+        # print('Raw data from table', table_name, 'fetched successfully')
     except Exception as e:
         df = None
         print(e.args[0])
@@ -112,7 +113,7 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_col
                 #         )
                 #     except TypeError:
                 #         error_indices_list.append(i)
-                print('Column', c, 'from table', table_name, 'cannot be converted from tinyint to boolean. '
+                print('Column', c, 'from table', table_name, 'cannot be converted from time to string. '
                                                              'Please check the values manually. The corrupt '
                                                              'rows are written in the file corrupt_rows.csv')
         # make sure indices are distinct
@@ -121,7 +122,7 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_col
         correct_indices_list = [x for x in all_indices if x not in error_indices_set]
         df_error = df.loc[error_indices_list]
         if not df_error.empty:
-            df_error.to_csv('corrupt_rows.csv', index=False)
+            df_error.to_csv('corrupt_rows' + time.strftime("%Y%m%d_%H%M%S") + '.csv', index=False)
         df_correct = df.loc[correct_indices_list]
         print('Data from table', table_name, 'cleaned successfully')
 
@@ -151,7 +152,7 @@ def compare_row_count(table_name, database_id, bigquery_client, con, date_filter
         return False
 
 
-def start_pipeline(table_name, project_id, database_id, bigquery_client, con, date_filter):
+def start_pipeline(table_name, project_id, database_id, bigquery_client, database_name, con, date_filter):
     """
     Starts the MySQL to BigQuery pipeline for a specified table.
     If the table in MySQL and in BigQuery have the same row count up to the specified date (date_filter),
@@ -175,7 +176,7 @@ def start_pipeline(table_name, project_id, database_id, bigquery_client, con, da
             table_name)
         table_id = "{}.{}.{}".format(project_id, database_id, table_name)
         create_bigquery_table(bigquery_client, table_id, schema_def)
-        table_data = get_raw_data_from_mysql(table_name, con)
+        table_data = get_raw_data_from_mysql(table_name, database_name, con)
         table_data = clean_mysql_data(table_name, table_data, required_columns, tinyint_columns, time_columns)
         write_data_to_bigquery(table_data, bigquery_client, schema_def, table_id)
     else:
@@ -188,10 +189,10 @@ if __name__ == '__main__':
     date_filter = '2022-11-01 10:13:24'
 
     # get table names for which the pipeline should be executed
-    # table_names = get_mysql_table_names(SQA_CONN_PUB)
+    # table_names = get_mysql_table_names(SQA_CONN_PUB, DATABASE)
     table_names = ['coachee_survey', 'coachee_journey_bookings', 'coaches', 'usecases']
     for table_name in table_names:
-        start_pipeline(table_name, PROJECT_ID, DATABASE_ID, bigquery_client, SQA_CONN_PUB, date_filter)
+        start_pipeline(table_name, PROJECT_ID, DATABASE_ID, bigquery_client, DATABASE, SQA_CONN_PUB, date_filter)
 
     # close MySQL connection
     SQA_CONN_PUB.close()
