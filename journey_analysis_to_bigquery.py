@@ -8,9 +8,10 @@ from bigquery_table_schemas import bigquery_raw_journey_analysis_schema, \
 from journey_analysis_functions import calc_nps_and_feedback, get_journey_analysis_data
 from shared_functions import create_bigquery_table, write_data_to_bigquery
 
+PATH = '/home/mysql_to_bigquery_piplines/'
 # credentials to access Google Sheets
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name('data-analytics-359712-c05ab5a3dc2a.json', scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name(PATH + 'data-analytics-359712-c05ab5a3dc2a.json', scope)
 gs_client = gspread.authorize(creds)
 
 # Google Sheet document and sheet name to read data from
@@ -23,7 +24,7 @@ DATABASE_ID = 'old_system_raw_data'
 
 # get BigQuery credentials and connect client
 credentials = service_account.Credentials.from_service_account_file(
-    'data-analytics-359712-c05ab5a3dc2a.json')
+    PATH + 'data-analytics-359712-c05ab5a3dc2a.json')
 client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 # BigQuery table names to write data to
