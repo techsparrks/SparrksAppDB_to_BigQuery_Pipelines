@@ -1,3 +1,4 @@
+from google.api_core.exceptions import BadRequest
 from google.cloud import bigquery
 
 
@@ -15,10 +16,14 @@ def get_row_count(table_name, from_str, client_con, dataset, created_at):
     """
     sql = """SELECT COUNT(1) as record_count FROM {}.{} where created_at <= '{}'""".format(dataset, table_name, created_at)
     if from_str == 'bigquery' and client_con is not None:
-        job = client_con.query(sql)
-        rows = job.result()
-        for row in list(rows):
-            row_count = row.record_count
+        try:
+            job = client_con.query(sql)
+            rows = list(job.result())
+        except BadRequest as e:
+            print(e)
+            return 0
+        # for row in rows:
+        row_count = rows[0].record_count
     elif from_str == 'mysql' and client_con is not None:
         row_count = client_con.execute(sql).scalar()
     else:
