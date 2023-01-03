@@ -1,5 +1,5 @@
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 from google.cloud import bigquery
@@ -15,9 +15,11 @@ from shared_functions import write_data_to_bigquery, create_bigquery_table, get_
 PROJECT_ID = 'data-analytics-359712'
 DATABASE_ID = 'sparrksapp_raw_data'
 
+PATH = '/home/mysql_to_bigquery_piplines/'
+
 # get BigQuery credentials and connect client
 credentials = service_account.Credentials.from_service_account_file(
-    'data-analytics-359712-c05ab5a3dc2a.json')
+    PATH + 'data-analytics-359712-c05ab5a3dc2a.json')
 bigquery_client = bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 
@@ -152,7 +154,8 @@ def compare_row_count(table_name, database_id, bigquery_client, con, date_filter
         return False
 
 
-def start_pipeline(table_name, project_id, database_id, bigquery_client, database_name, con, date_filter):
+def start_pipeline(table_name, project_id, database_id, bigquery_client, database_name, con, compare_row_count_flag,
+                   date_filter=None):
     """
     Starts the MySQL to BigQuery pipeline for a specified table.
     If the table in MySQL and in BigQuery have the same row count up to the specified date (date_filter),
@@ -166,10 +169,25 @@ def start_pipeline(table_name, project_id, database_id, bigquery_client, databas
     project_id: ID of the BigQuery project
     database_id: ID of the BigQuery database
     bigquery_client: BigQuery client
+    database_name: name of the MySQL database
     con: MySQL connection
+    compare_row_count_flag: specifies if the row count of the source and destination should be compared
     date_filter: date up to which the number of rows of the tables should be compared
     """
-    if compare_row_count(table_name, database_id, bigquery_client, con, date_filter, 'sparrks'):
+    if compare_row_count_flag and (table_name != 'failed_jobs' or table_name != 'jobs'):
+        if compare_row_count(table_name, database_id, bigquery_client, con, date_filter, database_name):
+            mysql_create_schema_query = get_mysql_table_schema(con, table_name)
+            schema_def, required_columns, tinyint_columns, time_columns = prepare_bigquery_schema(
+                mysql_create_schema_query,
+                table_name)
+            table_id = "{}.{}.{}".format(project_id, database_id, table_name)
+            create_bigquery_table(bigquery_client, table_id, schema_def)
+            table_data = get_raw_data_from_mysql(table_name, database_name, con)
+            table_data = clean_mysql_data(table_name, table_data, required_columns, tinyint_columns, time_columns)
+            write_data_to_bigquery(table_data, bigquery_client, schema_def, table_id)
+        else:
+            print('Data Quality Check failed: unequal row count for table', table_name + '!')
+    else:
         mysql_create_schema_query = get_mysql_table_schema(con, table_name)
         schema_def, required_columns, tinyint_columns, time_columns = prepare_bigquery_schema(
             mysql_create_schema_query,
@@ -179,20 +197,18 @@ def start_pipeline(table_name, project_id, database_id, bigquery_client, databas
         table_data = get_raw_data_from_mysql(table_name, database_name, con)
         table_data = clean_mysql_data(table_name, table_data, required_columns, tinyint_columns, time_columns)
         write_data_to_bigquery(table_data, bigquery_client, schema_def, table_id)
-    else:
-        print('Data Quality Check failed: unequal row count for table', table_name + '!')
 
 
 if __name__ == '__main__':
     # set date filter up to which the row count should be compared for data validation
-    # date_filter = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    date_filter = '2022-11-01 10:13:24'
+    date_filter = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
 
     # get table names for which the pipeline should be executed
-    # table_names = get_mysql_table_names(SQA_CONN_PUB, DATABASE)
-    table_names = ['coachee_survey', 'coachee_journey_bookings', 'coaches', 'usecases']
+    table_names = get_mysql_table_names(SQA_CONN_PUB, DATABASE)
+    # table_names = ['coaches']
     for table_name in table_names:
-        start_pipeline(table_name, PROJECT_ID, DATABASE_ID, bigquery_client, DATABASE, SQA_CONN_PUB, date_filter)
+        start_pipeline(table_name, PROJECT_ID, DATABASE_ID, bigquery_client, DATABASE, SQA_CONN_PUB,
+                       compare_row_count_flag=True, date_filter=date_filter)
 
     # close MySQL connection
     SQA_CONN_PUB.close()
