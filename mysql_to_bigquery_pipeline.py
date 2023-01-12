@@ -71,6 +71,10 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_col
     returns: a dataframe in the correct form to be uploaded to BigQuery
     """
     error_indices_list = []
+
+    # current timestamp for the name of the csv file with corrupt rows
+    current_timestamp = time.strftime("%Y%m%d_%H%M%S")
+
     if df is None:
         print('Data frame for table', table_name, 'is None. No cleaning was performed')
         return None
@@ -95,7 +99,7 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_col
                     df[(df[c] != 1) & (df[c] != 0) & (df[c].notna())].index.values.astype(int).tolist())
                 print('Column', c, 'from table', table_name, 'cannot be converted from tinyint to boolean. Please '
                                                              'check the values manually. The corrupt rows are written '
-                                                             'in the file corrupt_rows.csv')
+                                                             'in the file corrupt_rows_' + current_timestamp + '.csv')
                 print(e.args[0])
 
         # check if time is convertible to str
@@ -117,14 +121,14 @@ def clean_mysql_data(table_name, df, required_columns, tinyint_columns, time_col
                 #         error_indices_list.append(i)
                 print('Column', c, 'from table', table_name, 'cannot be converted from time to string. '
                                                              'Please check the values manually. The corrupt '
-                                                             'rows are written in the file corrupt_rows.csv')
+                                                             'rows are written in the file corrupt_rows_' + current_timestamp + '.csv')
         # make sure indices are distinct
         error_indices_set = set(error_indices_list)
         all_indices = df.index.values.astype(int).tolist()
         correct_indices_list = [x for x in all_indices if x not in error_indices_set]
         df_error = df.loc[error_indices_list]
         if not df_error.empty:
-            df_error.to_csv('corrupt_rows' + time.strftime("%Y%m%d_%H%M%S") + '.csv', index=False)
+            df_error.to_csv('corrupt_rows_' + current_timestamp + '.csv', index=False)
         df_correct = df.loc[correct_indices_list]
         print('Data from table', table_name, 'cleaned successfully')
 
