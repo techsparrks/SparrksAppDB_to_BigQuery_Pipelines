@@ -132,9 +132,11 @@ def calc_nps_and_feedback(raw_journey_analysis_df, topic_or_coach):
 
     feedback_ratings_df = pd.merge(ratings_df, feedback_n_df, how='outer')
     feedback_ratings_df['feedback_n'].replace(np.nan, 0, inplace=True)
+    feedback_ratings_df['booked'].replace(np.nan, 0, inplace=True)
 
     # calculate feedback % by dividing the number of all feedbacks by the number of completed journeys
     feedback_ratings_df["feedback_p"] = round((feedback_ratings_df["feedback_n"] / feedback_ratings_df["journey_completed"]), 2)
+    feedback_ratings_df['feedback_p'].replace(np.inf, 0, inplace=True)
 
     # set the origin column to OLD VERSION to differentiate from the NEW VERSION data
     feedback_ratings_df["origin"] = "OLD VERSION"
