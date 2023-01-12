@@ -15,7 +15,9 @@ from shared_functions import write_data_to_bigquery, create_bigquery_table, get_
 PROJECT_ID = 'data-analytics-359712'
 DATABASE_ID = 'sparrksapp_raw_data'
 
-PATH = '/home/mysql_to_bigquery_piplines/'
+# local path: 'home/mysql_to_bigquery_piplines/'
+# path for the VM: '/home/mysql_to_bigquery_piplines/'
+PATH = 'home/mysql_to_bigquery_piplines/'
 
 # get BigQuery credentials and connect client
 credentials = service_account.Credentials.from_service_account_file(
